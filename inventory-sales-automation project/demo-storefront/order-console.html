@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>General Store — Order Online</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f4f5f1; --surface:#ffffff; --ink:#1c2b24; --muted:#5c6b64; --border:#dfe3dc;
+    --accent:#c98a12; --accent-ink:#4a3200; --accent-soft:#f6e6c4;
+    --success:#2f7a4f; --success-bg:#e7f3ec;
+    --warning:#9a6a06; --warning-bg:#fbf1dc;
+    --danger:#a3352b; --danger-bg:#fbeae8;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#10170f; --surface:#17211c; --ink:#e9ece7; --muted:#93a49b; --border:#293630;
+      --accent:#e0ab3e; --accent-ink:#2a1c00; --accent-soft:#3a2c07;
+      --success:#5fbf87; --success-bg:#123322;
+      --warning:#e0b445; --warning-bg:#3a2c07;
+      --danger:#e08279; --danger-bg:#3a1512;
+      color-scheme: dark;
+    }
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Work Sans',system-ui,sans-serif;
+    padding:28px 16px 100px;
+    min-height:100vh;
+  }
+  .wrap{max-width:960px; margin:0 auto;}
+
+  header.store{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:22px;}
+  .store h1{
+    font-family:'Fraunces',serif; font-weight:700; font-size:clamp(26px,4.5vw,34px);
+    margin:0 0 4px; letter-spacing:-0.01em;
+  }
+  .store .tagline{color:var(--muted); margin:0; font-size:14.5px;}
+  .gear-btn{
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    width:40px; height:40px; font-size:17px; cursor:pointer; flex:0 0 auto; color:var(--muted);
+  }
+  .gear-btn:hover{color:var(--ink); border-color:var(--accent);}
+
+  details.settings{
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:14px 18px; margin-bottom:24px;
+  }
+  details.settings summary{font-weight:600; cursor:pointer; font-size:14px; list-style:none;}
+  details.settings summary::-webkit-details-marker{display:none}
+  .settings-body{margin-top:14px; font-size:14px; color:var(--muted); line-height:1.6;}
+  .settings-body ol{margin:8px 0 0; padding-left:20px;}
+  .settings-body li{margin-bottom:6px;}
+  .settings-body code{
+    font-family:'IBM Plex Mono',monospace; background:var(--bg); padding:1px 6px;
+    border-radius:4px; font-size:12.5px; border:1px solid var(--border);
+  }
+  .field{margin-bottom:0;}
+  .field label{
+    display:block; font-size:12px; font-weight:600; text-transform:uppercase;
+    letter-spacing:0.05em; color:var(--muted); margin-bottom:6px;
+  }
+  input[type=text], input[type=number], input[type=url], select{
+    width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px;
+    background:var(--bg); color:var(--ink); font-size:15px; font-family:inherit;
+  }
+  input:focus, select:focus{outline:2px solid var(--accent); outline-offset:1px;}
+  .mono{font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums;}
+
+  .layout{display:grid; grid-template-columns:1fr 320px; gap:22px; align-items:start;}
+  @media (max-width:760px){ .layout{grid-template-columns:1fr;} }
+
+  .category-section{margin-bottom:26px;}
+  .category-head{display:flex; align-items:baseline; gap:8px; margin-bottom:12px;}
+  .category-head .cat-icon{font-size:20px;}
+  .category-head h2{font-family:'Fraunces',serif; font-size:19px; font-weight:600; margin:0;}
+
+  .catalog{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:14px;
+  }
+  .product-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    padding:16px 14px; display:flex; flex-direction:column; align-items:center; text-align:center;
+    gap:6px;
+  }
+  .product-icon{
+    width:52px; height:52px; border-radius:50%; background:var(--accent-soft);
+    display:flex; align-items:center; justify-content:center; font-size:24px; margin-bottom:2px;
+  }
+  .product-name{font-weight:600; font-size:14px; line-height:1.3;}
+  .product-price{color:var(--accent-ink); font-family:'IBM Plex Mono',monospace; font-size:13.5px; font-weight:600;}
+  .availability-badge{
+    display:none; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em;
+    padding:3px 9px; border-radius:20px; margin-top:4px;
+  }
+  .availability-badge.in_stock{display:inline-block; background:var(--success-bg); color:var(--success);}
+  .availability-badge.low_stock{display:inline-block; background:var(--warning-bg); color:var(--warning);}
+  .availability-badge.out_of_stock{display:inline-block; background:var(--danger-bg); color:var(--danger);}
+  .product-card.out-of-stock{opacity:0.6;}
+  .variant-select{margin-top:6px; font-size:13px; padding:7px 8px;}
+  .product-stepper{
+    display:flex; align-items:center; gap:8px; margin-top:6px;
+  }
+  .stepper-btn{
+    width:28px; height:28px; border-radius:7px; border:1px solid var(--border); background:var(--bg);
+    color:var(--ink); font-size:15px; cursor:pointer; line-height:1;
+  }
+  .stepper-btn:hover{border-color:var(--accent);}
+  .stepper-qty{
+    width:44px; text-align:center; font-family:'IBM Plex Mono',monospace; font-size:14px;
+    padding:6px 2px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--ink);
+  }
+  /* hide the native up/down spinner so the field reads like a plain number, not a form widget */
+  .stepper-qty::-webkit-outer-spin-button, .stepper-qty::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
+  .stepper-qty{-moz-appearance:textfield;}
+  .add-to-cart{
+    width:100%; margin-top:10px; padding:8px; border:none; border-radius:8px;
+    background:var(--accent); color:var(--accent-ink); font-size:13.5px; font-weight:700;
+    cursor:pointer; font-family:inherit;
+  }
+  .add-to-cart:hover{filter:brightness(0.96);}
+  .add-to-cart.added{background:var(--success); color:#fff;}
+  .add-to-cart:disabled{opacity:0.5; cursor:default; filter:none;}
+  .stepper-btn:disabled, .stepper-qty:disabled{opacity:0.5; cursor:default;}
+
+  .hint-btn{
+    background:none; border:1px solid var(--border); border-radius:8px; color:var(--muted);
+    font-size:12.5px; padding:6px 12px; cursor:pointer; font-family:inherit;
+  }
+  .hint-btn:hover{color:var(--ink); border-color:var(--accent);}
+
+  .cart{
+    position:sticky; top:20px;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    padding:18px;
+  }
+  .cart h2{font-family:'Fraunces',serif; font-size:18px; font-weight:600; margin:0 0 12px;}
+  .cart-empty{color:var(--muted); font-size:14px; padding:12px 0;}
+  .cart-line{
+    display:flex; justify-content:space-between; align-items:center; gap:8px;
+    padding:9px 0; border-bottom:1px dashed var(--border); font-size:14px;
+  }
+  .cart-line:last-of-type{border-bottom:none;}
+  .cart-line .name{flex:1; min-width:0;}
+  .cart-line .name .p{font-weight:600; display:block;}
+  .cart-line .name .q{color:var(--muted); font-size:12.5px;}
+  .cart-line .line-total{font-family:'IBM Plex Mono',monospace; font-size:13.5px; white-space:nowrap;}
+  .cart-remove{
+    background:none; border:none; color:var(--muted); cursor:pointer; font-size:15px; padding:2px 4px;
+  }
+  .cart-remove:hover{color:var(--danger);}
+
+  .cart-total{
+    display:flex; justify-content:space-between; align-items:baseline; margin-top:14px;
+    padding-top:12px; border-top:1px solid var(--border); font-weight:700;
+  }
+  .cart-total .amt{font-family:'IBM Plex Mono',monospace; font-size:17px;}
+
+  .payment-group{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 4px;}
+  .payment-chip{
+    padding:7px 12px; border-radius:20px; border:1px solid var(--border); background:var(--bg);
+    font-size:13px; cursor:pointer; color:var(--muted);
+  }
+  .payment-chip.selected{background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:600;}
+
+  .payment-details{margin-top:10px;}
+  .payment-details-label{
+    font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;
+    color:var(--muted); margin-bottom:6px;
+  }
+  .payment-details-box{
+    min-height:56px; border:1px dashed var(--border); border-radius:8px; background:var(--bg);
+  }
+
+  .order-id-line{font-size:12px; color:var(--muted); margin-top:10px; font-family:'IBM Plex Mono',monospace;}
+
+  .checkout-btn{
+    width:100%; margin-top:16px; padding:13px; border:none; border-radius:10px;
+    background:var(--ink); color:var(--bg); font-size:15px; font-weight:700;
+    cursor:pointer; font-family:inherit;
+  }
+  .checkout-btn:disabled{opacity:0.5; cursor:default;}
+  .checkout-btn:not(:disabled):hover{filter:brightness(1.15);}
+
+  .result{margin-top:16px;}
+  .card{
+    border-radius:10px; padding:16px 18px; margin-bottom:12px; font-size:14.5px; line-height:1.55;
+  }
+  .card.ok{background:var(--success-bg); color:var(--success); border:1px solid var(--success);}
+  .card.warn{background:var(--warning-bg); color:var(--warning); border:1px solid var(--warning);}
+  .card.err{background:var(--danger-bg); color:var(--danger); border:1px solid var(--danger);}
+  .card h3{margin:0 0 8px; font-size:14px; font-weight:700;}
+  .card ul{margin:6px 0 0; padding-left:18px;}
+  .card .total{margin-top:10px; font-weight:700; font-family:'IBM Plex Mono',monospace;}
+
+  .hint{font-size:12.5px; color:var(--muted); margin-top:6px;}
+
+  .done-btn{
+    width:100%; margin-top:12px; padding:11px; border:none; border-radius:9px;
+    background:var(--success); color:#fff; font-size:14.5px; font-weight:700;
+    cursor:pointer; font-family:inherit;
+  }
+  .done-btn:hover{filter:brightness(1.08);}
+
+  .receipt{
+    position:relative;
+    background:var(--surface); border:1px solid var(--border); border-radius:4px;
+    padding:20px 16px 14px;
+    font-family:'IBM Plex Mono',monospace; color:var(--ink);
+  }
+  .receipt::before{
+    content:""; position:absolute; top:-1px; left:0; right:0; height:10px;
+    background-image: radial-gradient(circle at 9px 5px, var(--bg) 5px, transparent 5.5px);
+    background-size: 18px 10px; background-repeat: repeat-x; background-position: 5px 0;
+  }
+  .receipt-header{text-align:center; margin-bottom:12px;}
+  .receipt-store{font-weight:700; font-size:14.5px; letter-spacing:0.04em;}
+  .receipt-meta{color:var(--muted); font-size:11.5px; margin-top:3px;}
+  .receipt-divider{border-top:1px dashed var(--border); margin:10px 0;}
+  .receipt-section-title{
+    font-size:11px; font-weight:700; letter-spacing:0.07em; color:var(--muted); margin-bottom:6px;
+  }
+  .receipt-line{display:flex; justify-content:space-between; gap:12px; padding:3px 0; font-size:12.5px;}
+  .receipt-line .l{min-width:0;}
+  .receipt-line .r{color:var(--muted); font-size:11.5px; white-space:nowrap;}
+  .receipt-line.issue .r{color:var(--danger);}
+  .receipt-sub{color:var(--muted); font-size:10.5px; margin:-2px 0 4px;}
+  .receipt-total{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-weight:700; font-size:15px; padding-top:2px;
+  }
+  .receipt-footer{text-align:center; margin-top:14px; font-size:11.5px; color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="store">
+    <div>
+      <h1>🏪 General Store</h1>
+      <p class="tagline">Order online — this is a demo storefront that sends real orders into your n8n workflow.</p>
+    </div>
+    <button type="button" class="gear-btn" id="gearBtn" title="Webhook settings">⚙</button>
+  </header>
+
+  <details class="settings" id="settingsPanel">
+    <summary>Webhook settings &amp; how this demo works</summary>
+    <div class="settings-body">
+      <div class="field" style="margin-bottom:0;">
+        <label for="webhookUrl">Order Webhook URL</label>
+        <input type="url" id="webhookUrl" class="mono" placeholder="http://localhost:5678/webhook-test/new-sale">
+      </div>
+      <ol style="margin-top:14px;">
+        <li>In n8n, open the <strong>🛒 New Sale Order (Webhook)</strong> node and click <strong>Execute workflow</strong> (or <strong>Test workflow</strong>), then copy its <strong>Test URL</strong> into the field above.</li>
+        <li>Add products to the cart on the left and click <strong>Place Order</strong>.</li>
+        <li>Once your workflow is Active, switch this to the <strong>Production URL</strong> instead — then you don't need to click Execute workflow first each time.</li>
+      </ol>
+      <p style="margin-top:10px;">If Place Order shows a network error: open the Webhook node → <strong>Options</strong> → add <strong>Allowed Origins (CORS)</strong> → set it to <code>*</code>.</p>
+      <p style="margin-top:10px;">Prices shown here are placeholders for the demo look — the real price, stock check, and revenue are all calculated by your workflow from the Inventory sheet's Selling Price column. Edit the <code>CATALOG</code> list near the top of the script to change products, demo prices, or the Rice/Cooking Oil packaging options.</p>
+      <p style="margin-top:10px;"><strong>Important for Rice and Cooking Oil:</strong> since each packaging size (25kg, 50kg for rice; Liter, Gallon for oil) is really a separate stock item, this demo sends the product name as <code>"Perfect Blue Jasmine - 25kg"</code>, <code>"Palm Oil - Liter"</code>, etc. Your Inventory sheet needs one row per combination, named exactly that way, for stock matching to work.</p>
+
+      <div class="field" style="margin-top:16px;">
+        <label for="availabilityUrl">Product Availability Webhook URL (optional)</label>
+        <input type="url" id="availabilityUrl" class="mono" placeholder="http://localhost:5678/webhook-test/product-availability">
+      </div>
+      <p style="margin-top:10px;">If this is set, each product card shows an <strong>In Stock / Low Stock / Out of Stock</strong> badge, read from a separate read-only GET webhook. Healthy stock stays a plain badge; once something is at or under its reorder threshold, the badge also shows exactly how many are left (e.g. "Low Stock · 3 left"), so there's still no public page showing your full inventory counts. Leave the field blank and badges just won't show; nothing else changes. It refreshes when the page loads, right after every order, every 45 seconds, and on <strong>Refresh stock now</strong> below.</p>
+      <p style="margin-top:10px;"><strong>Using a Test URL?</strong> Like the order webhook, it only answers once per click of <strong>Execute workflow</strong> — every fetch after that first one will fail silently until you click it again. For badges that actually keep updating, activate the workflow and use this webhook's Production URL instead.</p>
+      <p style="margin-top:10px;">
+        <button type="button" class="hint-btn" id="refreshAvailabilityBtn">↻ Refresh stock now</button>
+        <span class="hint" id="availabilityStatus" style="margin-left:8px;"></span>
+      </p>
+    </div>
+  </details>
+
+  <div class="layout">
+    <div id="catalogRoot"></div>
+
+    <div class="cart">
+      <h2>🧺 Your Cart</h2>
+      <div id="cartLines"><div class="cart-empty">Your cart is empty. Add something from the shelf!</div></div>
+
+      <div class="cart-total">
+        <span>Total</span>
+        <span class="amt" id="cartTotal">₱0.00</span>
+      </div>
+
+      <div class="field" style="margin-top:14px;">
+        <label for="customerEmail">Your Email</label>
+        <input type="email" id="customerEmail" placeholder="you@example.com">
+      </div>
+
+      <div class="payment-group" id="paymentGroup"></div>
+
+      <div class="payment-details" id="paymentDetails">
+        <div class="payment-details-label">Payment Details</div>
+        <div class="payment-details-box" id="paymentDetailsBox"></div>
+      </div>
+
+      <button type="button" class="checkout-btn" id="checkoutBtn" disabled>Place Order</button>
+      <div class="order-id-line" id="orderIdLine"></div>
+
+      <div class="result" id="result"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ---- Edit this to match your own products, icons, and demo prices ----
+  // Simple items just need a name + price.
+  // Items with a "variants" list (like Rice and Cooking Oil) let the customer
+  // pick a packaging/size option; the cart sends it as "<name> - <variant>",
+  // so your Inventory sheet needs one row per combination named the same way.
+  var CATALOG = [
+    {
+      category: 'Rice',
+      icon: '🌾',
+      items: [
+        {
+          name: 'Perfect Blue Jasmine',
+          variants: [
+            { label: '25kg', price: 1410 },
+            { label: '50kg', price: 2770 }
+          ]
+        },
+        {
+          name: 'RSTN Pure Dinorado',
+          variants: [
+            { label: '25kg', price: 1360 },
+            { label: '50kg', price: 2650 }
+          ]
+        },
+        {
+          name: 'Lipeño Sinandomeng',
+          variants: [
+            { label: '25kg', price: 1330 },
+            { label: '50kg', price: 2600 }
+          ]
+        },
+        {
+          name: 'Binhi Alsa',
+          variants: [
+            { label: '25kg', price: 1150 },
+            { label: '50kg', price: 2250 }
+          ]
+        },
+        {
+          name: 'Maharlika Super Special',
+          variants: [
+            { label: '25kg', price: 1400 },
+            { label: '50kg', price: 2730 }
+          ]
+        }
+      ]
+    },
+    {
+      category: 'Eggs',
+      icon: '🥚',
+      items: [
+        { name: 'Eggs - Medium', price: 8  },
+        { name: 'Eggs - Large',  price: 8  },
+        { name: 'Eggs - XL',     price: 9  },
+        { name: 'Eggs - Jumbo',  price: 10 }
+      ]
+    },
+    {
+      category: 'Cooking Oil',
+      icon: '<svg viewBox="0 0 24 24" width="22" height="22" fill="#eab308" aria-hidden="true"><path d="M12 2.2C12 2.2 5.2 11 5.2 15.3a6.8 6.8 0 0 0 13.6 0C18.8 11 12 2.2 12 2.2z"/></svg>',
+      items: [
+        {
+          name: 'Palm Oil',
+          variants: [
+            { label: 'Liter',  price: 140 },
+            { label: 'Gallon', price: 320 }
+          ]
+        },
+        {
+          name: 'Vegetable Oil',
+          variants: [
+            { label: 'Liter',  price: 150 },
+            { label: 'Gallon', price: 330 }
+          ]
+        }
+      ]
+    }
+  ];
+
+  var PAYMENT_METHODS = ['E-wallet', 'Bank Transfer', 'Cash on Delivery'];
+  // Methods that should show a (currently blank) payment-details box at checkout —
+  // e.g. where a QR code or account number would go once this is wired up for real.
+  var METHODS_WITH_DETAILS = ['E-wallet', 'Bank Transfer'];
+
+  var catalogRoot = document.getElementById('catalogRoot');
+  var cartLinesEl = document.getElementById('cartLines');
+  var cartTotalEl = document.getElementById('cartTotal');
+  var paymentGroupEl = document.getElementById('paymentGroup');
+  var paymentDetailsEl = document.getElementById('paymentDetails');
+  var checkoutBtn = document.getElementById('checkoutBtn');
+  var orderIdLine = document.getElementById('orderIdLine');
+  var resultEl = document.getElementById('result');
+  var customerEmailInput = document.getElementById('customerEmail');
+  var webhookInput = document.getElementById('webhookUrl');
+  var availabilityUrlInput = document.getElementById('availabilityUrl');
+  var refreshAvailabilityBtn = document.getElementById('refreshAvailabilityBtn');
+  var availabilityStatusEl = document.getElementById('availabilityStatus');
+  var gearBtn = document.getElementById('gearBtn');
+  var settingsPanel = document.getElementById('settingsPanel');
+
+  function safeGet(key){ try { return localStorage.getItem(key); } catch(e){ return null; } }
+  function safeSet(key, val){ try { localStorage.setItem(key, val); } catch(e){} }
+
+  var savedUrl = safeGet('orderConsole.webhookUrl');
+  if (savedUrl) webhookInput.value = savedUrl;
+  webhookInput.addEventListener('change', function(){ safeSet('orderConsole.webhookUrl', webhookInput.value.trim()); });
+
+  gearBtn.addEventListener('click', function(){ settingsPanel.open = !settingsPanel.open; });
+  if (!savedUrl) settingsPanel.open = true;
+
+  // ---- Product availability (optional read-only webhook: product -> { status, quantity? }) ----
+  var availability = {};       // productName -> { status, quantity? } — quantity only set once low/out
+  var cardRefreshers = [];     // one updater per product card, re-run whenever availability changes
+
+  var savedAvailUrl = safeGet('orderConsole.availabilityUrl');
+  if (savedAvailUrl) availabilityUrlInput.value = savedAvailUrl;
+  availabilityUrlInput.addEventListener('change', function(){
+    safeSet('orderConsole.availabilityUrl', availabilityUrlInput.value.trim());
+    fetchAvailability();
+  });
+  refreshAvailabilityBtn.addEventListener('click', function(){ fetchAvailability(); });
+
+  function refreshAllAvailabilityUI(){
+    cardRefreshers.forEach(function(fn){ fn(); });
+  }
+
+  function setAvailabilityStatus(text){
+    if (availabilityStatusEl) availabilityStatusEl.textContent = text;
+  }
+
+  function fetchAvailability(){
+    var url = availabilityUrlInput.value.trim();
+    if (!url){
+      availability = {};
+      refreshAllAvailabilityUI();
+      setAvailabilityStatus('');
+      return;
+    }
+    // Cache-bust: a GET webhook response can otherwise get served straight from the
+    // browser's HTTP cache on reload, which looks exactly like "stock never updates".
+    var bustUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + '_=' + Date.now();
+    try {
+      fetch(bustUrl, { cache: 'no-store' })
+        .then(function(res){ return res.json(); })
+        .then(function(list){
+          var map = {};
+          (Array.isArray(list) ? list : []).forEach(function(row){
+            if (row && row.product){
+              map[row.product] = { status: row.status, quantity: row.quantity };
+            }
+          });
+          availability = map;
+          refreshAllAvailabilityUI();
+          var pad = function(n){ return String(n).padStart(2, '0'); };
+          var now = new Date();
+          setAvailabilityStatus('Updated ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds()));
+        })
+        .catch(function(){
+          // Unreachable, or (very likely with a Test URL) already used up this execution —
+          // say so plainly instead of silently leaving the old badges in place.
+          setAvailabilityStatus('Could not refresh — check the URL is live (Test URLs only answer once).');
+        });
+    } catch (e) {
+      setAvailabilityStatus('Could not refresh — fetch is unavailable in this browser.');
+    }
+  }
+
+  // Keep stock badges roughly current without the buyer lifting a finger.
+  setInterval(fetchAvailability, 45000);
+
+  function generateOrderId(){
+    var d = new Date();
+    var pad = function(n){ return String(n).padStart(2,'0'); };
+    var stamp = d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate());
+    var rand = String(Math.floor(Math.random()*900)+100);
+    return 'ORD' + stamp + '-' + rand;
+  }
+  var currentOrderId = generateOrderId();
+
+  var cart = {};        // productName -> quantity
+  var cartPrices = {};  // productName -> unit price (for the demo total only)
+  var selectedPayment = PAYMENT_METHODS[0];
+
+  function fmtMoney(n){ return '₱' + n.toFixed(2); }
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+
+  function addToCart(productName, unitPrice, qty){
+    // Starting a fresh cart after a previous order's result is still on screen (e.g. a
+    // rejection notice) — clear those old notes now that a new order is underway.
+    var isFreshStart = Object.keys(cart).length === 0;
+    cart[productName] = (cart[productName] || 0) + qty;
+    cartPrices[productName] = unitPrice;
+    if (isFreshStart && !awaitingDone){
+      resultEl.innerHTML = '';
+    }
+    renderCart();
+  }
+
+  // ---- Build catalog sections ----
+  CATALOG.forEach(function(section){
+    var sectionEl = document.createElement('div');
+    sectionEl.className = 'category-section';
+
+    var head = document.createElement('div');
+    head.className = 'category-head';
+    head.innerHTML = '<span class="cat-icon">' + section.icon + '</span><h2>' + escapeHtml(section.category) + '</h2>';
+    sectionEl.appendChild(head);
+
+    var grid = document.createElement('div');
+    grid.className = 'catalog';
+
+    section.items.forEach(function(item){
+      var card = document.createElement('div');
+      card.className = 'product-card';
+
+      var icon = document.createElement('div');
+      icon.className = 'product-icon';
+      icon.innerHTML = section.icon;
+
+      var name = document.createElement('div');
+      name.className = 'product-name';
+      name.textContent = item.name;
+
+      card.appendChild(icon);
+      card.appendChild(name);
+
+      var priceEl = document.createElement('div');
+      priceEl.className = 'product-price';
+      card.appendChild(priceEl);
+
+      var badgeEl = document.createElement('div');
+      badgeEl.className = 'availability-badge';
+      card.appendChild(badgeEl);
+
+      var variantSelect = null;
+      if (item.variants && item.variants.length){
+        variantSelect = document.createElement('select');
+        variantSelect.className = 'variant-select';
+        item.variants.forEach(function(v){
+          var opt = document.createElement('option');
+          opt.value = v.label;
+          opt.textContent = v.label;
+          variantSelect.appendChild(opt);
+        });
+        priceEl.textContent = fmtMoney(item.variants[0].price);
+        variantSelect.addEventListener('change', function(){
+          var v = item.variants.find(function(x){ return x.label === variantSelect.value; });
+          priceEl.textContent = v ? fmtMoney(v.price) : '';
+          refreshCardAvailability();
+        });
+        card.appendChild(variantSelect);
+      } else {
+        priceEl.textContent = fmtMoney(item.price);
+      }
+
+      // Resolves to the exact product key the backend (and availability webhook) uses for
+      // whichever variant is currently selected — same "<name> - <variant>" convention as the cart.
+      function currentProductKey(){
+        return variantSelect ? (item.name + ' - ' + variantSelect.value) : item.name;
+      }
+
+      var stepper = document.createElement('div');
+      stepper.className = 'product-stepper';
+      var minusBtn = document.createElement('button');
+      minusBtn.type = 'button'; minusBtn.className = 'stepper-btn'; minusBtn.textContent = '−';
+      var qtyInput = document.createElement('input');
+      qtyInput.type = 'number'; qtyInput.min = '1'; qtyInput.step = '1';
+      qtyInput.className = 'stepper-qty mono'; qtyInput.value = '1';
+      var plusBtn = document.createElement('button');
+      plusBtn.type = 'button'; plusBtn.className = 'stepper-btn'; plusBtn.textContent = '+';
+
+      // Read whatever is currently in the box, normalizing to a whole number >= 1.
+      function getQty(){
+        var v = parseInt(qtyInput.value, 10);
+        return (Number.isFinite(v) && v > 0) ? v : 1;
+      }
+      function setQty(n){ qtyInput.value = String(n); }
+
+      minusBtn.addEventListener('click', function(){ setQty(Math.max(1, getQty() - 1)); });
+      plusBtn.addEventListener('click', function(){ setQty(getQty() + 1); });
+      // Only normalize once the person is done typing (blur / Enter) — reformatting
+      // on every keystroke would fight anyone trying to clear the box and type "25".
+      qtyInput.addEventListener('change', function(){ setQty(getQty()); });
+
+      stepper.appendChild(minusBtn);
+      stepper.appendChild(qtyInput);
+      stepper.appendChild(plusBtn);
+      card.appendChild(stepper);
+
+      var addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'add-to-cart';
+      addBtn.textContent = 'Add to Cart';
+      addBtn.addEventListener('click', function(){
+        var productName = item.name;
+        var unitPrice = item.price;
+        if (variantSelect){
+          var v = item.variants.find(function(x){ return x.label === variantSelect.value; });
+          productName = item.name + ' - ' + variantSelect.value;
+          unitPrice = v ? v.price : 0;
+        }
+        addToCart(productName, unitPrice, getQty());
+        setQty(1);
+        addBtn.textContent = 'Added ✓';
+        addBtn.classList.add('added');
+        setTimeout(function(){ addBtn.classList.remove('added'); refreshCardAvailability(); }, 900);
+      });
+      card.appendChild(addBtn);
+
+      // Shows the In Stock / Low Stock / Out of Stock badge for whichever variant is selected,
+      // and locks the stepper + Add to Cart button when that exact item is out of stock.
+      function refreshCardAvailability(){
+        var entry = availability[currentProductKey()];
+        var status = entry && entry.status;
+        if (!status){
+          badgeEl.className = 'availability-badge';
+          badgeEl.textContent = '';
+          minusBtn.disabled = false; plusBtn.disabled = false; qtyInput.disabled = false;
+          addBtn.disabled = false;
+          if (!addBtn.classList.contains('added')) addBtn.textContent = 'Add to Cart';
+          return;
+        }
+        var label;
+        if (status === 'in_stock'){
+          label = 'In Stock';
+        } else if (status === 'low_stock'){
+          // Quantity is only ever sent once stock is at/under its reorder threshold —
+          // that's exactly when it's worth showing the buyer how few are left.
+          label = 'Low Stock' + (typeof entry.quantity === 'number' ? ' · ' + entry.quantity + ' left' : '');
+        } else {
+          label = 'Out of Stock';
+        }
+        badgeEl.className = 'availability-badge ' + status;
+        badgeEl.textContent = label;
+        var outOfStock = status === 'out_of_stock';
+        card.classList.toggle('out-of-stock', outOfStock);
+        minusBtn.disabled = outOfStock; plusBtn.disabled = outOfStock; qtyInput.disabled = outOfStock;
+        addBtn.disabled = outOfStock;
+        if (!addBtn.classList.contains('added')) addBtn.textContent = outOfStock ? 'Out of Stock' : 'Add to Cart';
+      }
+      cardRefreshers.push(refreshCardAvailability);
+      refreshCardAvailability();
+
+      grid.appendChild(card);
+    });
+
+    sectionEl.appendChild(grid);
+    catalogRoot.appendChild(sectionEl);
+  });
+
+  function updatePaymentDetailsVisibility(){
+    paymentDetailsEl.style.display = METHODS_WITH_DETAILS.indexOf(selectedPayment) === -1 ? 'none' : 'block';
+  }
+
+  // ---- Build payment method chips ----
+  PAYMENT_METHODS.forEach(function(method){
+    var chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'payment-chip' + (method === selectedPayment ? ' selected' : '');
+    chip.textContent = method;
+    chip.addEventListener('click', function(){
+      selectedPayment = method;
+      Array.prototype.forEach.call(paymentGroupEl.children, function(c){ c.classList.remove('selected'); });
+      chip.classList.add('selected');
+      updatePaymentDetailsVisibility();
+    });
+    paymentGroupEl.appendChild(chip);
+  });
+  updatePaymentDetailsVisibility();
+
+  function renderCart(){
+    var names = Object.keys(cart).filter(function(n){ return cart[n] > 0; });
+    if (names.length === 0){
+      cartLinesEl.innerHTML = '<div class="cart-empty">Your cart is empty. Add something from the shelf!</div>';
+      cartTotalEl.textContent = fmtMoney(0);
+      checkoutBtn.disabled = true;
+      orderIdLine.textContent = '';
+      return;
+    }
+
+    var total = 0;
+    cartLinesEl.innerHTML = '';
+    names.forEach(function(n){
+      var qty = cart[n];
+      var lineTotal = qty * (cartPrices[n] || 0);
+      total += lineTotal;
+
+      var line = document.createElement('div');
+      line.className = 'cart-line';
+      line.innerHTML =
+        '<div class="name"><span class="p">' + escapeHtml(n) + '</span>' +
+        '<span class="q">× ' + qty + '</span></div>' +
+        '<div class="line-total">' + fmtMoney(lineTotal) + '</div>';
+
+      var removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'cart-remove';
+      removeBtn.textContent = '✕';
+      removeBtn.addEventListener('click', function(){ delete cart[n]; delete cartPrices[n]; renderCart(); });
+      line.appendChild(removeBtn);
+
+      cartLinesEl.appendChild(line);
+    });
+
+    cartTotalEl.textContent = fmtMoney(total);
+    checkoutBtn.disabled = false;
+    orderIdLine.textContent = 'Order ID: ' + currentOrderId;
+  }
+
+  renderCart();
+  fetchAvailability();
+
+  // ---- Result cards (same response shape as your n8n workflow returns) ----
+  function buildSuccessCard(data){
+    var now = new Date();
+    var pad = function(n){ return String(n).padStart(2, '0'); };
+    var timestamp = pad(now.getMonth() + 1) + '/' + pad(now.getDate()) + '/' + now.getFullYear() +
+      ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+
+    var html = '<div class="receipt">';
+    html += '<div class="receipt-header">';
+    html += '<div class="receipt-store">GENERAL STORE</div>';
+    html += '<div class="receipt-meta">Order ' + escapeHtml(data.orderId || '') + '</div>';
+    html += '<div class="receipt-meta">' + timestamp + ' &middot; ' + escapeHtml(selectedPayment) + '</div>';
+    html += '</div>';
+    html += '<div class="receipt-divider"></div>';
+
+    if (data.fulfilledItems && data.fulfilledItems.length){
+      html += '<div class="receipt-section-title">ITEMS</div>';
+      data.fulfilledItems.forEach(function(i){
+        html += '<div class="receipt-line"><span class="l">' + escapeHtml(i.product) + '</span>' +
+          '<span class="r">× ' + escapeHtml(i.quantitySold) + '</span></div>';
+        html += '<div class="receipt-sub">' + escapeHtml(i.remainingStock) + ' left in stock</div>';
+      });
+    }
+
+    if (data.issues && data.issues.length){
+      html += '<div class="receipt-divider"></div>';
+      html += '<div class="receipt-section-title">NOT FULFILLED</div>';
+      data.issues.forEach(function(i){
+        html += '<div class="receipt-line issue"><span class="l">' + escapeHtml(i.product) + '</span>' +
+          '<span class="r">' + escapeHtml(i.issue || i.status) + '</span></div>';
+      });
+    }
+
+    html += '<div class="receipt-divider"></div>';
+    if (typeof data.totalRevenue !== 'undefined'){
+      html += '<div class="receipt-total"><span>TOTAL</span><span>₱' +
+        escapeHtml(data.totalRevenue.toFixed ? data.totalRevenue.toFixed(2) : data.totalRevenue) + '</span></div>';
+    }
+    html += '<div class="receipt-footer">Thank you for your order!</div>';
+    html += '</div>';
+    html += '<button type="button" class="done-btn" id="doneBtn">Done — Start Next Order</button>';
+    return html;
+  }
+
+  function buildErrorCard(data){
+    var html = '<div class="card err"><h3>Order rejected</h3>';
+    if (data.errors && data.errors.length){
+      html += '<ul>';
+      data.errors.forEach(function(e){ html += '<li>' + escapeHtml(e) + '</li>'; });
+      html += '</ul>';
+    } else if (data.message){
+      html += '<div>' + escapeHtml(data.message) + '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  // For an actual response from n8n that isn't a clean success: either the order never got
+  // past validation (data.errors), or some line items couldn't be fulfilled (data.issues) —
+  // possibly alongside others that WERE sold (data.fulfilledItems), since stock is checked
+  // per item. Either way the order didn't go through as submitted, so the cart gets cleared
+  // right after this is shown (see the click handler below).
+  function buildRejectedCard(data){
+    var hasFulfilled = data.fulfilledItems && data.fulfilledItems.length;
+    var hasIssues = data.issues && data.issues.length;
+    var isPartial = !!(hasFulfilled || hasIssues);
+    var cls = isPartial ? 'warn' : 'err';
+    var title = isPartial ? 'Order partially fulfilled' : 'Order rejected';
+
+    var html = '<div class="card ' + cls + '"><h3>' + title + '</h3>';
+
+    if (data.errors && data.errors.length){
+      html += '<ul>';
+      data.errors.forEach(function(e){ html += '<li>' + escapeHtml(e) + '</li>'; });
+      html += '</ul>';
+    } else if (isPartial){
+      if (hasFulfilled){
+        html += '<div><strong>Fulfilled:</strong></div><ul>';
+        data.fulfilledItems.forEach(function(i){
+          html += '<li>' + escapeHtml(i.product) + ' × ' + escapeHtml(i.quantitySold) + '</li>';
+        });
+        html += '</ul>';
+      }
+      if (hasIssues){
+        html += '<div><strong>Could not fulfill:</strong></div><ul>';
+        data.issues.forEach(function(i){
+          html += '<li>' + escapeHtml(i.product) + ' — ' + escapeHtml(i.issue || i.status) + '</li>';
+        });
+        html += '</ul>';
+      }
+      if (typeof data.totalRevenue !== 'undefined'){
+        html += '<div class="total">Charged: ' + fmtMoney(data.totalRevenue) + '</div>';
+      }
+    } else if (data.message){
+      html += '<div>' + escapeHtml(data.message) + '</div>';
+    }
+
+    html += '<div class="hint" style="margin-top:10px;">Your cart has been cleared — add items again to place a new order.</div>';
+    html += '</div>';
+    return html;
+  }
+
+  function buildNetworkErrorCard(message){
+    return '<div class="card err"><h3>Could not reach n8n</h3>' +
+      '<div>' + escapeHtml(message) + '</div>' +
+      '<div class="hint">Check: is n8n running? Did you click "Execute workflow" on the webhook node first (for a Test URL)? Does the Webhook node’s Options have Allowed Origins (CORS) set to <code>*</code>?</div></div>';
+  }
+
+  var awaitingDone = false;
+
+  checkoutBtn.addEventListener('click', function(){
+    var url = webhookInput.value.trim();
+    if (!url){
+      settingsPanel.open = true;
+      resultEl.innerHTML = buildErrorCard({ errors: ['Enter your Webhook URL in Settings above first.'] });
+      return;
+    }
+
+    var email = customerEmailInput.value.trim();
+    if (!email){
+      resultEl.innerHTML = buildErrorCard({ errors: ['Enter your email above so we can send your confirmation.'] });
+      return;
+    }
+
+    var items = Object.keys(cart)
+      .filter(function(n){ return cart[n] > 0; })
+      .map(function(n){ return { product: n, quantity: cart[n] }; });
+
+    if (items.length === 0) return;
+
+    var payload = {
+      orderId: currentOrderId,
+      modeOfPayment: selectedPayment,
+      customerEmail: email,
+      items: items
+    };
+
+    checkoutBtn.disabled = true;
+    checkoutBtn.textContent = 'Sending…';
+    resultEl.innerHTML = '<div class="hint">Sending order…</div>';
+
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(function(res){
+      return res.text().then(function(text){
+        var data;
+        try { data = JSON.parse(text); } catch(e){ data = null; }
+        var html;
+        var isSuccess = !!(data && data.success === true);
+        var isRejected = !!(data && !isSuccess);
+        if (isSuccess){
+          html = buildSuccessCard(data);
+        } else if (isRejected){
+          html = buildRejectedCard(data);
+        } else {
+          html = buildNetworkErrorCard('n8n responded, but not with valid JSON (status ' + res.status + ').');
+        }
+        resultEl.innerHTML = html;
+
+        if (isSuccess){
+          // Keep the cart + receipt on screen until the cashier confirms they're
+          // done, rather than clearing it the instant the order succeeds.
+          awaitingDone = true;
+          var doneBtn = document.getElementById('doneBtn');
+          if (doneBtn){
+            doneBtn.addEventListener('click', function(){
+              awaitingDone = false;
+              cart = {};
+              cartPrices = {};
+              currentOrderId = generateOrderId();
+              customerEmailInput.value = '';
+              resultEl.innerHTML = '';
+              renderCart();
+              fetchAvailability();
+            });
+          }
+        } else if (isRejected){
+          // n8n actually processed (or tried to process) this order and said no — whether
+          // that's a flat validation failure or some items being out of stock, the cart no
+          // longer matches what's true, so clear it instead of leaving stale items behind.
+          cart = {};
+          cartPrices = {};
+          currentOrderId = generateOrderId();
+          renderCart();
+        }
+
+        if (isSuccess || isRejected){
+          // Stock may have just changed server-side — refresh the badges right away
+          // instead of waiting for the next 45-second poll.
+          fetchAvailability();
+        }
+      });
+    })
+    .catch(function(err){
+      resultEl.innerHTML = buildNetworkErrorCard(err && err.message ? err.message : 'The request failed before reaching n8n.');
+    })
+    .finally(function(){
+      checkoutBtn.textContent = 'Place Order';
+      checkoutBtn.disabled = awaitingDone ||
+        Object.keys(cart).filter(function(n){ return cart[n] > 0; }).length === 0;
+    });
+  });
+})();
+</script>
+</body>
+</html>

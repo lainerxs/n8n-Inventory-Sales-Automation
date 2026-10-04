@@ -1,0 +1,1528 @@
+{
+  "name": "Inventory & Sales Automation - Demo Project",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "### Branch A — Real-Time Sale Processing\nTriggered by an incoming webhook (a sale).",
+        "height": 100,
+        "width": 368
+      },
+      "id": "49d4688e-91f0-4e5a-9342-ad93a65ad4d0",
+      "name": "Branch A Label",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -77088,
+        1568
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Branch B — Daily Low-Stock Digest\nRuns automatically every day at 8 AM.",
+        "height": 80,
+        "width": 780
+      },
+      "id": "e09d03f6-4ba6-4718-a7aa-9b875372cd7d",
+      "name": "Branch B Label",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -77088,
+        2160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Branch C — Weekly Sales Analytics Report\nRuns automatically every Monday at 9 AM.",
+        "height": 80,
+        "width": 780
+      },
+      "id": "4d38749f-939d-4c53-8891-d0d2138dfac8",
+      "name": "Branch C Label",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -77088,
+        2592
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Branch D — Global Error Alerts\nCatches failures anywhere in this workflow. Also open Workflow Settings (⚙️) → Error Workflow → select this same workflow, so it can catch itself.",
+        "height": 100,
+        "width": 780
+      },
+      "id": "4c608956-310e-4355-a60e-96b1b82fd099",
+      "name": "Branch D Label",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -77088,
+        2944
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-sale",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0783012f-6d1b-450d-8db4-e5d781e84302",
+      "name": "🛒 New Sale Order (Webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -77088,
+        1696
+      ],
+      "webhookId": "b2c3d4e5-sale-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = ($input.first().json.body) || {};\nconst errors = [];\n\nconst orderId = body.orderId ? String(body.orderId).trim() : '';\nif (!orderId) errors.push('orderId is required');\n\nconst modeOfPayment = body.modeOfPayment ? String(body.modeOfPayment).trim() : 'Not specified';\n\nconst customerEmail = body.customerEmail ? String(body.customerEmail).trim() : '';\nif (!customerEmail) {\n  errors.push('customerEmail is required');\n} else if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(customerEmail)) {\n  errors.push('customerEmail must be a valid email address');\n}\n\nconst rawItems = Array.isArray(body.items) ? body.items : [];\nif (rawItems.length === 0) errors.push('items must be a non-empty array');\n\nconst items = [];\nrawItems.forEach((it, idx) => {\n  const product = (it && it.product) ? String(it.product).trim() : '';\n  const quantity = Number(it && it.quantity);\n  if (!product) errors.push(`items[${idx}].product is required`);\n  if (!quantity || quantity <= 0 || !Number.isFinite(quantity)) {\n    errors.push(`items[${idx}].quantity must be a positive number`);\n  }\n  if (product && quantity > 0) items.push({ product, quantity });\n});\n\nreturn [{\n  json: {\n    valid: errors.length === 0,\n    errors,\n    orderId,\n    modeOfPayment,\n    customerEmail,\n    items,\n    receivedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "5ec8072f-e30f-4817-9aed-f5deea2dabc7",
+      "name": "Validate Order Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -76816,
+        1696
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b30df8c3-5ae4-4572-977f-3c79db4b9d6b",
+      "name": "Valid Order Format?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -76560,
+        1696
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": false, \"orderId\": $json.orderId, \"errors\": $json.errors } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "a4c6446d-a215-4af9-bd65-b4d19dd9ca59",
+      "name": "❌ Respond: Invalid Order",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -76288,
+        1952
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Inventory and Sales Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1494235270,
+          "mode": "list",
+          "cachedResultName": "Inventory",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=1494235270"
+        },
+        "options": {}
+      },
+      "id": "94cb6222-882a-430e-ba29-347f5148b22f",
+      "name": "Get All Inventory",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -76304,
+        1680
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Inventory and Sales Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1496078127,
+          "mode": "list",
+          "cachedResultName": "SalesLog",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=1496078127"
+        },
+        "options": {}
+      },
+      "id": "7bccd3c5-fff2-431d-81b4-305ff2be7fea",
+      "name": "Get Sales Log (Dup Check)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -76048,
+        1680
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const order = $('Validate Order Input').first().json;\nconst salesRows = $('Get Sales Log (Dup Check)').all()\n  .map(i => i.json)\n  .filter(r => r && r.OrderId);\n\nconst isDuplicate = salesRows.some(r => String(r.OrderId).trim() === order.orderId);\n\nreturn [{ json: { ...order, isDuplicate } }];"
+      },
+      "id": "17284005-fc8f-448a-8126-756a1de13bbf",
+      "name": "Check Duplicate Order",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -75776,
+        1680
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-dup",
+              "leftValue": "={{ $json.isDuplicate }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ef7be1db-12e5-440d-85de-74424ab9e89e",
+      "name": "Already Processed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -75520,
+        1680
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": false, \"orderId\": $json.orderId, \"message\": \"Order already processed — skipped to avoid double counting.\" } }}",
+        "options": {}
+      },
+      "id": "74464a21-47ae-4743-81d6-b3427b484229",
+      "name": "⚠️ Respond: Duplicate Order",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -75296,
+        1456
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const order = $('Check Duplicate Order').first().json;\nconst inventoryRows = $('Get All Inventory').all()\n  .map(i => i.json)\n  .filter(r => r && r.Product);\n\nconst results = order.items.map(item => {\n  const row = inventoryRows.find(\n    r => String(r.Product).trim().toLowerCase() === item.product.toLowerCase()\n  );\n\n  if (!row) {\n    return {\n      orderId: order.orderId,\n      modeOfPayment: order.modeOfPayment,\n      customerEmail: order.customerEmail,\n      product: item.product,\n      quantitySold: item.quantity,\n      currentStock: null,\n      remainingStock: null,\n      reorderThreshold: null,\n      price: null,\n      status: 'unknown_product',\n      issue: `Product \"${item.product}\" was not found in the Inventory sheet.`,\n      lowStock: false\n    };\n  }\n\n  const currentStock = Number(row.CurrentStock) || 0;\n  const reorderThreshold = Number(row.ReorderThreshold) || 0;\n  const price = Number(row['Selling Price']) || 0;\n  const remainingStock = currentStock - item.quantity;\n\n  if (remainingStock < 0) {\n    return {\n      orderId: order.orderId,\n      modeOfPayment: order.modeOfPayment,\n      customerEmail: order.customerEmail,\n      product: item.product,\n      quantitySold: item.quantity,\n      currentStock,\n      remainingStock,\n      reorderThreshold,\n      price,\n      status: 'insufficient_stock',\n      issue: `Only ${currentStock} in stock, order requested ${item.quantity}.`,\n      lowStock: false\n    };\n  }\n\n  return {\n    orderId: order.orderId,\n    modeOfPayment: order.modeOfPayment,\n    customerEmail: order.customerEmail,\n    product: item.product,\n    quantitySold: item.quantity,\n    currentStock,\n    remainingStock,\n    reorderThreshold,\n    price,\n    status: 'ok',\n    issue: null,\n    lowStock: remainingStock <= reorderThreshold\n  };\n});\n\nreturn results.map(r => ({ json: r }));"
+      },
+      "id": "870ffd79-ad07-49d8-8963-a46fb6f6d60b",
+      "name": "Match Items & Calculate Stock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -75264,
+        1696
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\nconst orderId = items.length ? items[0].orderId : null;\nconst customerEmail = items.length ? items[0].customerEmail : null;\nconst modeOfPayment = items.length ? items[0].modeOfPayment : null;\n\nconst fulfilled = items.filter(i => i.status === 'ok');\nconst issues = items.filter(i => i.status !== 'ok');\n\nconst totalRevenue = fulfilled.reduce(\n  (sum, i) => sum + ((i.price || 0) * (i.quantitySold || 0)), 0\n);\nconst roundedTotal = Math.round(totalRevenue * 100) / 100;\n\nfunction escapeHtml(str) {\n  return String(str).replace(/[&<>\"']/g, c => ({\n    '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;'\n  }[c]));\n}\n\nconst now = new Date();\nconst pad = n => String(n).padStart(2, '0');\nconst timestamp = `${pad(now.getMonth() + 1)}/${pad(now.getDate())}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;\n\n// Table-based layout with inline styles — the only way to get reliable left/right\n// alignment across email clients (Gmail, Outlook, etc. strip flexbox/grid).\nconst MONO = \"'Courier New', Courier, monospace\";\nconst DIVIDER = `<tr><td colspan=\"2\" style=\"border-top:1px dashed #cfcfcf; padding:6px 0; line-height:0; font-size:0;\">&nbsp;</td></tr>`;\n\nfunction sectionTitle(label) {\n  return `<tr><td colspan=\"2\" style=\"font-family:${MONO}; font-size:11px; font-weight:700; letter-spacing:1px; color:#777777; padding:8px 0 4px;\">${label}</td></tr>`;\n}\nfunction itemRow(left, right, color, nowrap) {\n  const c = color || '#1c2b24';\n  const wrapStyle = nowrap ? 'white-space:nowrap;' : 'max-width:150px;';\n  return `\n    <tr>\n      <td style=\"font-family:${MONO}; font-size:13px; color:${c}; padding:3px 0; vertical-align:top;\">${left}</td>\n      <td style=\"font-family:${MONO}; font-size:12.5px; color:${c}; padding:3px 0 3px 10px; text-align:right; vertical-align:top; ${wrapStyle}\">${right}</td>\n    </tr>`;\n}\n\n// Quantities are short (\"× 3\") so they stay on one line; issue messages can run long,\n// so they're allowed to wrap rather than forcing the email wider than the receipt card.\nconst fulfilledRows = fulfilled.map(i =>\n  itemRow(escapeHtml(i.product), '&times; ' + escapeHtml(i.quantitySold), null, true)\n).join('');\nconst issueRows = issues.map(i =>\n  itemRow(escapeHtml(i.product), escapeHtml(i.issue || i.status), '#a3352b', false)\n).join('');\n\nconst emailHtml = `\n<div style=\"max-width:380px; margin:0 auto; background:#ffffff; border:1px solid #e3e3e3; border-radius:6px; padding:22px 20px; font-family:${MONO};\">\n  <div style=\"text-align:center; margin-bottom:4px;\">\n    <div style=\"font-weight:700; font-size:15px; letter-spacing:1.5px; color:#1c2b24;\">GENERAL STORE</div>\n    <div style=\"color:#8a8a8a; font-size:11px; margin-top:5px;\">Order ${escapeHtml(orderId || '')}</div>\n    <div style=\"color:#8a8a8a; font-size:11px;\">${timestamp}${modeOfPayment ? ' &middot; ' + escapeHtml(modeOfPayment) : ''}</div>\n  </div>\n  <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-collapse:collapse; margin-top:10px;\">\n    ${DIVIDER}\n    ${fulfilled.length ? sectionTitle('ITEMS') + fulfilledRows : ''}\n    ${issues.length ? DIVIDER + sectionTitle('NOT FULFILLED') + issueRows : ''}\n    ${DIVIDER}\n    <tr>\n      <td style=\"font-family:${MONO}; font-size:15px; font-weight:700; color:#1c2b24; padding-top:4px;\">TOTAL</td>\n      <td style=\"font-family:${MONO}; font-size:15px; font-weight:700; color:#1c2b24; padding-top:4px; text-align:right;\">&#8369;${roundedTotal.toFixed(2)}</td>\n    </tr>\n  </table>\n  <div style=\"text-align:center; margin-top:18px; font-family:Arial, sans-serif; font-size:12px; color:#8a8a8a; line-height:1.5;\">\n    Hi, thanks for your order! If anything here looks wrong, just reply to this email.\n  </div>\n</div>\n`;\n\nreturn [{\n  json: {\n    success: issues.length === 0,\n    orderId,\n    customerEmail,\n    fulfilledItems: fulfilled.map(i => ({\n      product: i.product, quantitySold: i.quantitySold, remainingStock: i.remainingStock\n    })),\n    issues: issues.map(i => ({ product: i.product, status: i.status, issue: i.issue })),\n    totalRevenue: roundedTotal,\n    emailHtml,\n    processedAt: new Date().toISOString()\n  }\n}];\n"
+      },
+      "id": "4af2e8db-126b-4876-b42c-6ebf8f41db86",
+      "name": "Build Order Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -75008,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "00c9ff12-45ef-4cb4-9241-96a3cfcf94ed",
+      "name": "✅ Respond: Order Processed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -74736,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-fulfill",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "ok",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a77a1c1a-dbf6-4eb4-96fc-898a22bc1b6a",
+      "name": "Item OK to Fulfill?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -75056,
+        1920
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Inventory and Sales Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 13322907,
+          "mode": "list",
+          "cachedResultName": "Exceptions",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=13322907"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $now.toFormat('yyyy-LL-dd HH:mm') }}",
+            "OrderId": "={{ $json.orderId }}",
+            "Product": "={{ $json.product }}",
+            "Issue": "={{ $json.status }}",
+            "Details": "={{ $json.issue }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "OrderId",
+              "displayName": "OrderId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Product",
+              "displayName": "Product",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Issue",
+              "displayName": "Issue",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Details",
+              "displayName": "Details",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "8adf4c38-fa7f-4762-850e-165924c88035",
+      "name": "Log Exception",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -74736,
+        2048
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "={{ \"🚨 Order issue — \" + $('Match Items & Calculate Stock').item.json.orderId + \"\\nProduct: \" + $('Match Items & Calculate Stock').item.json.product + \"\\nStatus: \" + $('Match Items & Calculate Stock').item.json.status + \"\\nDetails: \" + $('Match Items & Calculate Stock').item.json.issue }}",
+        "additionalFields": {}
+      },
+      "id": "72538eb4-2aee-41cf-8951-01a69a0e0cfa",
+      "name": "🚨 Alert: Order Issue",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -74544,
+        2048
+      ],
+      "webhookId": "5bd80293-9bc0-481c-ac4b-a148a442991b",
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Inventory and Sales Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1494235270,
+          "mode": "list",
+          "cachedResultName": "Inventory",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=1494235270"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Product": "={{ $json.product }}",
+            "CurrentStock": "={{ $json.remainingStock }}",
+            "RestockNeeded": "={{ $json.lowStock ? 'TRUE' : 'FALSE' }}"
+          },
+          "matchingColumns": [
+            "Product"
+          ],
+          "schema": [
+            {
+              "id": "Product",
+              "displayName": "Product",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "CurrentStock",
+              "displayName": "CurrentStock",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ReorderThreshold",
+              "displayName": "ReorderThreshold",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RestockNeeded",
+              "displayName": "RestockNeeded",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Price",
+              "displayName": "Price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "8a1066b5-2053-4faa-88ab-bd015d088f4a",
+      "name": "Update Inventory Stock",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -74736,
+        1744
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Inventory and Sales Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1496078127,
+          "mode": "list",
+          "cachedResultName": "SalesLog",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=1496078127"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $now.toFormat('yyyy-LL-dd HH:mm') }}",
+            "OrderId": "={{ $('Match Items & Calculate Stock').item.json.orderId }}",
+            "Product Name": "={{ $('Match Items & Calculate Stock').item.json.product }}",
+            "Quantity Sold": "={{ $('Match Items & Calculate Stock').item.json.quantitySold }}",
+            "Remaining Stock": "={{ $('Match Items & Calculate Stock').item.json.remainingStock }}",
+            "Mode of Payment": "={{ $('Match Items & Calculate Stock').item.json.modeOfPayment }}",
+            "Selling Price": "={{ $('Match Items & Calculate Stock').item.json.price }}",
+            "Status": "Fulfilled",
+            "Revenue": "={{ Math.round(($('Match Items & Calculate Stock').item.json.price || 0) * $('Match Items & Calculate Stock').item.json.quantitySold * 100) / 100 }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "OrderId",
+              "displayName": "OrderId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Product Name",
+              "displayName": "Product Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Quantity Sold",
+              "displayName": "Quantity Sold",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Remaining Stock",
+              "displayName": "Remaining Stock",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Mode of Payment",
+              "displayName": "Mode of Payment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Revenue",
+              "displayName": "Revenue",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "3fa4f4f7-b817-4fc5-b507-dd14027f9e3f",
+      "name": "Record Sale",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -74544,
+        1744
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-lowstock",
+              "leftValue": "={{ $('Match Items & Calculate Stock').item.json.lowStock }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "645908db-f454-47af-9754-a9efe8bb9bf7",
+      "name": "Low Stock After Sale?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -74304,
+        1744
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "={{ \"⚠️ Low stock alert: \" + $('Match Items & Calculate Stock').item.json.product + \" has only \" + $('Match Items & Calculate Stock').item.json.remainingStock + \" left (reorder threshold: \" + $('Match Items & Calculate Stock').item.json.reorderThreshold + \")\" }}",
+        "additionalFields": {}
+      },
+      "id": "e2c37ad6-e704-4ed0-9121-09f8662fe053",
+      "name": "📉 Alert: Low Stock",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -74048,
+        1600
+      ],
+      "webhookId": "57d2c2d8-b8a3-411f-9453-355965bc69a8",
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "486975e4-6bcf-41c4-92c0-31c5ca63c503",
+      "name": "⏰ Every Day at 8AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -77088,
+        2256
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Inventory and Sales Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1494235270,
+          "mode": "list",
+          "cachedResultName": "Inventory",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=1494235270"
+        },
+        "options": {}
+      },
+      "id": "def3191b-00f7-417f-98b8-1336ca10df2c",
+      "name": "Get Inventory for Digest",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -76816,
+        2256
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => r && r.Product);\n\nconst low = rows.filter(r => {\n  const flagged = String(r.RestockNeeded).trim().toUpperCase() === 'TRUE';\n  const belowThreshold = Number(r.CurrentStock) <= Number(r.ReorderThreshold);\n  return flagged || belowThreshold;\n});\n\nconst today = new Date().toLocaleDateString();\nlet text;\nlet html;\n\nif (low.length === 0) {\n  text = `✅ Daily Inventory Check (${today})\n\nAll products are above their reorder threshold. No action needed.`;\n  html = `<p>✅ All products are above their reorder threshold. No action needed.</p>`;\n} else {\n  const lines = low.map(r => `• ${r.Product}: ${r.CurrentStock} left (reorder at ${r.ReorderThreshold})`);\n  text = `📋 Daily Low-Stock Digest (${today})\n\n${low.length} item(s) need attention:\n\n${lines.join('\\n')}`;\n  html = `<p>${low.length} item(s) need attention:</p>` +\n    `<table border=\"1\" cellpadding=\"6\" style=\"border-collapse:collapse\">` +\n    `<tr><th>Product</th><th>Current Stock</th><th>Reorder Threshold</th></tr>` +\n    low.map(r => `<tr><td>${r.Product}</td><td>${r.CurrentStock}</td><td>${r.ReorderThreshold}</td></tr>`).join('') +\n    `</table>`;\n}\n\nreturn [{ json: { text, html, lowStockCount: low.length } }];"
+      },
+      "id": "0f7f6485-a454-45b5-89b2-bc80e565e592",
+      "name": "Build Digest Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -76560,
+        2256
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "={{ $json.text || 'Daily Digest: no data was available for this run.' }}",
+        "additionalFields": {}
+      },
+      "id": "2bd83c0d-a550-4469-8486-f42160f71b2d",
+      "name": "📋 Send Daily Digest (Telegram)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -76304,
+        2160
+      ],
+      "webhookId": "bf82fa70-95b5-4ef7-9a81-1c517d5704f7",
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fromEmail": "your-sender@example.com",
+        "toEmail": "owner@example.com",
+        "subject": "={{ \"Daily Inventory Digest — \" + $now.toFormat('yyyy-LL-dd') }}",
+        "html": "={{ $json.html || '<p>Daily Digest: no data was available for this run.</p>' }}",
+        "options": {}
+      },
+      "id": "356c25f5-1d53-4989-82de-8ed3e2887faa",
+      "name": "📋 Send Daily Digest (Email)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -76304,
+        2352
+      ],
+      "webhookId": "4dc61005-cc45-44c0-ab41-15ceefc650f3",
+      "credentials": {
+        "smtp": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "SMTP account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "eba0e72f-d602-4490-b415-1bf7fcba39d1",
+      "name": "📅 Every Monday at 9AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -77088,
+        2704
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Inventory and Sales Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1496078127,
+          "mode": "list",
+          "cachedResultName": "SalesLog",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=1496078127"
+        },
+        "options": {}
+      },
+      "id": "3dc87b30-1d08-48ec-a474-7afd0d5fc02e",
+      "name": "Get Sales Log for Report",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -76816,
+        2704
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let rows = [];\ntry {\n  rows = $input.all().map(i => i.json).filter(r => r && r['Product Name']);\n} catch (e) {\n  rows = [];\n}\n\nfunction parseDate(value) {\n  if (!value) return null;\n  const raw = String(value).trim();\n  let d = new Date(raw);\n  if (!isNaN(d.getTime())) return d;\n  d = new Date(raw.replace(' ', 'T'));\n  if (!isNaN(d.getTime())) return d;\n  return null;\n}\n\nconst sevenDaysAgo = new Date();\nsevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);\n\nconst recent = rows.filter(r => {\n  const d = parseDate(r.Date);\n  return d !== null && d >= sevenDaysAgo;\n});\n\nconst byProduct = {};\nlet totalUnits = 0;\nlet totalRevenue = 0;\n\nrecent.forEach(r => {\n  const qty = Number(r['Quantity Sold']) || 0;\n  const rev = Number(r.Revenue) || 0;\n  totalUnits += qty;\n  totalRevenue += rev;\n  const key = String(r['Product Name'] || 'Unknown');\n  if (!byProduct[key]) byProduct[key] = { units: 0, revenue: 0, orders: 0 };\n  byProduct[key].units += qty;\n  byProduct[key].revenue += rev;\n  byProduct[key].orders += 1;\n});\n\nconst ranked = Object.entries(byProduct)\n  .map(([product, stats]) => ({ product, ...stats }))\n  .sort((a, b) => b.units - a.units);\n\nconst top5 = ranked.slice(0, 5);\n\nconst lines = top5.map((p, idx) =>\n  (idx + 1) + '. ' + p.product + ' - ' + p.units + ' units, $' + p.revenue.toFixed(2) + ' revenue (' + p.orders + ' orders)'\n);\n\nconst text = 'Weekly Sales Report (last 7 days)\\n\\n' +\n  'Total units sold: ' + totalUnits + '\\n' +\n  'Total revenue: $' + totalRevenue.toFixed(2) + '\\n' +\n  'Orders logged: ' + recent.length + '\\n\\n' +\n  'Top products:\\n' + (lines.join('\\n') || 'No sales recorded this week.');\n\nconst tableRows = top5.map((p, idx) =>\n  '<tr><td>' + (idx + 1) + '</td><td>' + p.product + '</td><td>' + p.units + '</td><td>$' + p.revenue.toFixed(2) + '</td><td>' + p.orders + '</td></tr>'\n).join('');\n\nconst html = '<h2>Weekly Sales Report</h2>' +\n  '<p>Total units sold: <b>' + totalUnits + '</b><br>Total revenue: <b>$' + totalRevenue.toFixed(2) + '</b><br>' +\n  'Orders logged: <b>' + recent.length + '</b></p>' +\n  '<h3>Top Products</h3>' +\n  '<table border=\"1\" cellpadding=\"6\" style=\"border-collapse:collapse\">' +\n  '<tr><th>#</th><th>Product</th><th>Units</th><th>Revenue</th><th>Orders</th></tr>' +\n  tableRows +\n  '</table>';\n\nreturn [{\n  json: {\n    text: text,\n    html: html,\n    totalUnits: totalUnits,\n    totalRevenue: Math.round(totalRevenue * 100) / 100,\n    orderCount: recent.length\n  }\n}];"
+      },
+      "id": "a973edef-fcfd-4978-a665-b52e479fbaf9",
+      "name": "Build Weekly Analytics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -76560,
+        2704
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "={{ $json.text || 'Weekly Sales Report: no data was available for this run.' }}",
+        "additionalFields": {}
+      },
+      "id": "5e810a45-ac6b-415a-97e1-823886b1b8aa",
+      "name": "📊 Send Weekly Report (Telegram)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -76304,
+        2592
+      ],
+      "webhookId": "d9938763-542f-4746-b548-3c1b0cd3aac8",
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fromEmail": "your-sender@example.com",
+        "toEmail": "owner@example.com",
+        "subject": "={{ \"Weekly Sales Report — \" + $now.toFormat('yyyy-LL-dd') }}",
+        "html": "={{ $json.html || '<p>Weekly Sales Report: no data was available for this run.</p>' }}",
+        "options": {}
+      },
+      "id": "e5fd5f8c-ac36-4842-a0a9-24019e4cd75a",
+      "name": "📊 Send Weekly Report (Email)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -76304,
+        2800
+      ],
+      "webhookId": "a11a650d-4001-4a69-a497-4bbe62677834",
+      "credentials": {
+        "smtp": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "SMTP account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {},
+      "id": "69b7cdf5-66d9-4995-819c-a80effa68491",
+      "name": "🛑 On Any Workflow Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -77088,
+        3072
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst workflowName = (data.workflow && data.workflow.name) || 'Inventory & Sales Automation';\nconst nodeName = (data.execution && data.execution.lastNodeExecuted) || 'Unknown node';\nconst message = (data.execution && data.execution.error && data.execution.error.message)\n  || JSON.stringify(data).slice(0, 300);\n\nreturn [{\n  json: {\n    text: `🆘 Workflow Error\n\nWorkflow: ${workflowName}\nFailed node: ${nodeName}\nError: ${message}\nTime: ${new Date().toLocaleString()}`\n  }\n}];"
+      },
+      "id": "45227ac5-2283-4191-a7e1-94be01a682fe",
+      "name": "Format Error Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -76816,
+        3072
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "={{ $json.text }}",
+        "additionalFields": {}
+      },
+      "id": "0347aadc-86cd-4130-9a38-204d37aee2bc",
+      "name": "🆘 Send Error Alert (Telegram)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -76560,
+        3072
+      ],
+      "webhookId": "f1f6c0fa-8871-4b36-a4df-93559c1d8dce",
+      "credentials": {
+        "telegramApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 📖 How This Works — Read Me First\n\nThis workflow has 4 independent branches, all living in one file:\n\n**A. Real-Time Sale Processing** (webhook)\nA sale comes in → validated → checked for duplicates → checked against real stock → inventory updated → sale logged → low-stock alert if needed → caller gets a real answer back (not just \"received\").\n\n**B. Daily Low-Stock Digest** (8 AM every day)\nOne consolidated Telegram + email message listing everything that needs reordering, instead of getting spammed one alert per sale.\n\n**C. Weekly Sales Analytics Report** (Monday 9 AM)\nTop-selling products, total units, and total revenue for the last 7 days.\n\n**D. Global Error Alerts**\nIf ANY node in this workflow fails, you get pinged on Telegram immediately.\n\nSet up your Google Sheet (see the note below) before running anything.",
+        "height": 460,
+        "width": 380,
+        "color": 4
+      },
+      "id": "fe41543e-9471-4da8-9290-e55a98a8f994",
+      "name": "📖 How This Works",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -77712,
+        1696
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "your-sender@example.com",
+        "toEmail": "={{ $json.customerEmail }}",
+        "subject": "={{ ($json.success ? \"Order Confirmed — \" : \"Order Update — \") + $json.orderId }}",
+        "html": "={{ $json.emailHtml }}",
+        "options": {}
+      },
+      "id": "35c55fd0-f59e-428c-8802-228817b92a3b",
+      "name": "📧 Send Order Confirmation (Email)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -74736,
+        1296
+      ],
+      "webhookId": "b51102bd-9004-4d36-b618-21136d641aaf",
+      "credentials": {
+        "smtp": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "SMTP account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## Branch E — Product Availability (read-only)\nLets the demo storefront show In Stock / Low Stock / Out of Stock per product, without exposing exact counts.",
+        "height": 140,
+        "width": 420
+      },
+      "id": "de2dc1e0-9b33-47bb-b0bc-a071f352976e",
+      "name": "Branch E Label",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -77088,
+        3296
+      ]
+    },
+    {
+      "parameters": {
+        "path": "product-availability",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1a859bbb-f8d1-4d22-88f1-fe44e59fa3e2",
+      "name": "📦 Get Product Availability (Webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -77088,
+        3456
+      ],
+      "webhookId": "e2b3c4d5-availability-webhook"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Inventory and Sales Sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1494235270,
+          "mode": "list",
+          "cachedResultName": "Inventory",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID/edit#gid=1494235270"
+        },
+        "options": {}
+      },
+      "id": "e6281255-3b1a-49ae-9049-4fac7ad37525",
+      "name": "Get Inventory For Availability",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -76816,
+        3456
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Status only, with the exact count revealed just when it matters (at/under the\n// reorder threshold) — healthy stock stays hidden so the public demo doesn't leak\n// full inventory numbers, but a shopper can see \"how few\" once it's actually low.\nconst rows = $input.all().map(i => i.json).filter(r => r && r.Product);\nreturn rows.map(r => {\n  const stock = Number(r['CurrentStock']) || 0;\n  const threshold = Number(r['ReorderThreshold']) || 0;\n  let status = 'in_stock';\n  if (stock <= 0) status = 'out_of_stock';\n  else if (stock <= threshold) status = 'low_stock';\n\n  const result = { product: String(r.Product).trim(), status };\n  if (status !== 'in_stock') {\n    result.quantity = Math.max(stock, 0);\n  }\n  return { json: result };\n});\n"
+      },
+      "id": "bc75f25d-f7b6-473f-88a1-405ccf50b6b2",
+      "name": "Format Availability",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -76560,
+        3456
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "id": "6341a704-c6a8-4279-b70f-76d5bc26d573",
+      "name": "📦 Respond: Product Availability",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -76304,
+        3456
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "🛒 New Sale Order (Webhook)": {
+      "main": [
+        [
+          {
+            "node": "Validate Order Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Order Input": {
+      "main": [
+        [
+          {
+            "node": "Valid Order Format?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Order Format?": {
+      "main": [
+        [
+          {
+            "node": "Get All Inventory",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "❌ Respond: Invalid Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Inventory": {
+      "main": [
+        [
+          {
+            "node": "Get Sales Log (Dup Check)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Sales Log (Dup Check)": {
+      "main": [
+        [
+          {
+            "node": "Check Duplicate Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Duplicate Order": {
+      "main": [
+        [
+          {
+            "node": "Already Processed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already Processed?": {
+      "main": [
+        [
+          {
+            "node": "⚠️ Respond: Duplicate Order",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Match Items & Calculate Stock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Items & Calculate Stock": {
+      "main": [
+        [
+          {
+            "node": "Build Order Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Item OK to Fulfill?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Order Response": {
+      "main": [
+        [
+          {
+            "node": "✅ Respond: Order Processed",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📧 Send Order Confirmation (Email)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Item OK to Fulfill?": {
+      "main": [
+        [
+          {
+            "node": "Update Inventory Stock",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Exception",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Exception": {
+      "main": [
+        [
+          {
+            "node": "🚨 Alert: Order Issue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Inventory Stock": {
+      "main": [
+        [
+          {
+            "node": "Record Sale",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Sale": {
+      "main": [
+        [
+          {
+            "node": "Low Stock After Sale?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Low Stock After Sale?": {
+      "main": [
+        [
+          {
+            "node": "📉 Alert: Low Stock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏰ Every Day at 8AM": {
+      "main": [
+        [
+          {
+            "node": "Get Inventory for Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Inventory for Digest": {
+      "main": [
+        [
+          {
+            "node": "Build Digest Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Digest Message": {
+      "main": [
+        [
+          {
+            "node": "📋 Send Daily Digest (Telegram)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📋 Send Daily Digest (Email)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📅 Every Monday at 9AM": {
+      "main": [
+        [
+          {
+            "node": "Get Sales Log for Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Sales Log for Report": {
+      "main": [
+        [
+          {
+            "node": "Build Weekly Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Weekly Analytics": {
+      "main": [
+        [
+          {
+            "node": "📊 Send Weekly Report (Telegram)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "📊 Send Weekly Report (Email)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🛑 On Any Workflow Error": {
+      "main": [
+        [
+          {
+            "node": "Format Error Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error Message": {
+      "main": [
+        [
+          {
+            "node": "🆘 Send Error Alert (Telegram)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📦 Get Product Availability (Webhook)": {
+      "main": [
+        [
+          {
+            "node": "Get Inventory For Availability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Inventory For Availability": {
+      "main": [
+        [
+          {
+            "node": "Format Availability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Availability": {
+      "main": [
+        [
+          {
+            "node": "📦 Respond: Product Availability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "meta": {},
+  "nodeGroups": [],
+  "tags": []
+}
