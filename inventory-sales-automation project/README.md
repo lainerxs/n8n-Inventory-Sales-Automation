@@ -8,9 +8,6 @@ analytics, and instant alerts if anything breaks — all without writing a tradi
 This project was built to learn workflow automation hands-on, using a real small store (rice,
 eggs, and cooking oil) as the use case.
 
-> 📸 *Add a screenshot or short screen recording of the storefront placing an order and the
-> n8n execution log here before publishing.*
-
 ## What it does
 
 A sale placed through the demo storefront (or any HTTP client) triggers a workflow that:
